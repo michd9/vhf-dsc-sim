@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VHF DSC Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+<style>
+:root {
+  --sea: #0b141d; --panel: #111d29; --panel-2: #16273a; --line: #23384d;
+  --fg: #dbe5ee; --muted: #8a9fb2; --accent: #f3b13c;
+  --body-hi: #373e45; --body: #22272c; --key-hi: #3c444c; --key: #2a3036; --key-ink: #e8edf0;
+  --lcd: #a2b38a; --lcd-hi: #b6c59f; --lcd-ink: #18200f; --lcd-dim: rgba(24,32,15,.17);
+  --f-disp: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --f-lcd: "Share Tech Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--sea); color: var(--fg); font: 15px/1.5 var(--f-body); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1100px; margin: 0 auto; padding: 14px 16px 48px; display: grid; gap: 22px; }
+@media (min-width: 960px) {
+  .wrap { grid-template-columns: 430px minmax(0,1fr); align-items: start; }
+  .radio-col { position: sticky; top: 14px; }
+}
+.radio-col, .panels { min-width: 0; }
+h1 { font-family: var(--f-disp); font-weight: 700; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 12px; }
+h1 span { color: var(--muted); font-weight: 500; }
+h2 { font-family: var(--f-disp); font-weight: 700; font-size: 24px; letter-spacing: .03em; text-transform: uppercase; margin: 0 0 4px; }
+.lede { color: var(--muted); max-width: 62ch; margin: 0 0 16px; }
+
+.radio { background: linear-gradient(180deg, var(--body-hi), var(--body) 40%); border-radius: 22px; padding: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 20px 44px rgba(0,0,0,.5); user-select: none; -webkit-user-select: none; }
+.rhead { display: flex; align-items: center; margin-bottom: 10px; }
+.brand { font-family: var(--f-disp); font-weight: 700; letter-spacing: .14em; font-size: 15px; color: #cfd6dc; }
+.brand small { display: block; font-weight: 500; font-size: 11px; letter-spacing: .18em; color: #7f8b95; }
+.grille { margin-left: auto; width: 96px; height: 26px; border-radius: 6px; background: repeating-linear-gradient(90deg, #15191c 0 3px, transparent 3px 6px); }
+
+.lcd { height: 186px; display: flex; flex-direction: column; gap: 3px; font-family: var(--f-lcd); color: var(--lcd-ink);
+  background: radial-gradient(130% 140% at 25% 15%, var(--lcd-hi), var(--lcd)); box-shadow: inset 0 2px 7px rgba(0,0,0,.4);
+  border: 3px solid #101417; border-radius: 9px; padding: 7px 11px; overflow: hidden; }
+.lcd-top { display: flex; gap: 8px; font-size: 12px; letter-spacing: .05em; }
+.fl { color: var(--lcd-dim); } .fl.on { color: var(--lcd-ink); }
+.lcd-main { flex: 1; display: flex; align-items: center; gap: 12px; }
+.chnum { position: relative; font-size: 86px; line-height: .86; font-variant-numeric: tabular-nums; }
+.chnum::before { content: "88"; position: absolute; inset: 0; color: var(--lcd-dim); }
+.chnum span { position: relative; }
+.chside { display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.2; }
+.lcd-bot { display: flex; justify-content: flex-end; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+.k { background: linear-gradient(180deg, var(--key-hi), var(--key)); border: 0; border-radius: 10px; min-height: 50px; color: var(--key-ink);
+  font-family: var(--f-disp); font-weight: 600; font-size: 17px; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: 0 3px 0 #121517, inset 0 1px 0 rgba(255,255,255,.07); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; touch-action: manipulation; }
+.k small { font-size: 10.5px; font-weight: 500; letter-spacing: .1em; color: #8e9aa4; }
+.k:active { transform: translateY(2px); box-shadow: 0 1px 0 #121517; }
+.k.lit { color: var(--accent); }
+.ptt { grid-column: 1 / -1; min-height: 66px; font-size: 19px; touch-action: none; }
+.ptt.tx { background: linear-gradient(180deg, #d4473c, #9c2a22); color: #fff; }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
+th { font-family: var(--f-disp); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 12.5px; color: var(--muted); text-align: left; padding: 8px 10px; background: var(--panel); }
+td { padding: 7px 10px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--f-lcd); font-size: 15px; }
+td:last-child { color: var(--muted); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--panel); }
+tr.cur td { background: var(--panel-2); }
+tr.cur td:first-child { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="radio-col">
+    <h1>VHF DSC Trainer <span>· Class D</span></h1>
+    <section class="radio" aria-label="VHF radio">
+      <div class="rhead">
+        <div class="brand">MARINER D-25<small>VHF · DSC · INT</small></div>
+        <div class="grille" aria-hidden="true"></div>
+      </div>
+      <div class="lcd" id="lcd" aria-live="polite"></div>
+      <div class="keys">
+        <button class="k" id="k16">16 / 9<small>hold: 9</small></button>
+        <button class="k" data-k="hl">H / L<small>power</small></button>
+        <button class="k" data-k="dw" id="kdw">DW<small>dual watch</small></button>
+        <button class="k" data-k="down" aria-label="Channel down">CH ▼</button>
+        <button class="k" data-k="up" aria-label="Channel up">CH ▲</button>
+        <button class="k ptt" id="ptt">PTT<small>hold to talk</small></button>
+      </div>
+    </section>
+  </div>
+
+  <div class="panels">
+    <h2>International channels</h2>
+    <p class="lede">Tap a row to tune the radio. Duplex channels are for coast stations: the ship transmits on the lower frequency and listens 4.6 MHz higher. Ch 70 is DSC only and never carries voice.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Ch</th><th>Ship TX MHz</th><th>Mode</th><th>Use</th></tr></thead>
+        <tbody id="chBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = s => document.querySelector(s);
+  const pad = n => String(n).padStart(2, '0');
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
+  const ALL_CH = [...range(1, 28), ...range(60, 88)];
+  const VOICE_CH = ALL_CH.filter(c => c !== 70);
+  const SIMPLEX = new Set([6,8,9,10,11,12,13,14,15,16,17,67,68,69,70,71,72,73,74,75,76,77,87,88]);
+  const LOW_ONLY = new Set([15, 17, 75, 76]);
+  const NOTES = {
+    6: 'Intership; SAR on-scene coordination', 8: 'Intership', 9: 'Calling channel for leisure craft in some areas',
+    10: 'Intership, port operations, SAR', 11: 'Port operations', 12: 'Port operations', 13: 'Bridge-to-bridge navigation safety',
+    14: 'Port operations', 15: 'On-board communications, 1 W only', 16: 'Distress, urgency, safety and calling',
+    17: 'On-board communications, 1 W only', 67: 'Intership; small-craft safety in some areas', 68: 'Port operations, marinas',
+    69: 'Intership, port operations', 70: 'DSC only: no voice', 71: 'Port operations', 72: 'Intership (leisure)',
+    73: 'Intership, SAR coordination', 74: 'Port operations', 75: 'Navigation-related, 1 W only', 76: 'Navigation-related, 1 W only',
+    77: 'Intership (leisure)', 87: 'Port operations (simplex)', 88: 'Port operations (simplex)'
+  };
+  const SHORT = {
+    6: 'INTERSHIP SAFETY', 8: 'INTERSHIP', 9: 'CALLING', 13: 'BRIDGE-BRIDGE', 16: 'DISTRESS·CALLING',
+    15: 'ON-BOARD 1W', 17: 'ON-BOARD 1W', 67: 'INTERSHIP', 68: 'PORT OPS', 72: 'INTERSHIP',
+    73: 'INTERSHIP·SAR', 75: 'NAV 1W', 76: 'NAV 1W', 77: 'INTERSHIP'
+  };
+  function chInfo(n) {
+    const f = n <= 28 ? 156.050 + (n - 1) * 0.05 : 156.025 + (n - 60) * 0.05;
+    const sx = SIMPLEX.has(n);
+    return { tx: f.toFixed(3), sx, note: NOTES[n] || 'Public correspondence via coast stations',
+             short: SHORT[n] || (sx ? 'PORT·INTERSHIP' : 'COAST STATION') };
+  }
+
+  const S = { ch: 16, prevCh: 16, hi: true, dw: false, tx: false, txStart: 0, flash: null };
+
+  function setCh(n) {
+    if (n !== S.ch) { S.prevCh = S.ch; S.ch = n; }
+    if (LOW_ONLY.has(n)) S.hi = false;
+    render();
+  }
+  function step(d) {
+    let i = VOICE_CH.indexOf(S.ch);
+    if (i < 0) i = VOICE_CH.indexOf(16);
+    setCh(VOICE_CH[(i + d + VOICE_CH.length) % VOICE_CH.length]);
+  }
+  function flash(text) { S.flash = { text, until: Date.now() + 1800 }; render(); }
+
+  function lcdHTML() {
+    const c = chInfo(S.ch);
+    const msg = S.flash && S.flash.until > Date.now() ? S.flash.text : c.short;
+    const secs = S.tx ? Math.floor((Date.now() - S.txStart) / 1000) : 0;
+    const right = S.tx ? `TX ${Math.floor(secs / 60)}:${pad(secs % 60)}` : new Date().toISOString().slice(11, 16) + ' UTC';
+    return `<div class="lcd-top">
+        <span class="fl ${S.tx ? 'on' : ''}">TX</span><span class="fl on">${S.hi ? 'HI 25W' : 'LO 1W'}</span>
+        <span class="fl on">INT</span><span class="fl ${S.dw ? 'on' : ''}">DW</span></div>
+      <div class="lcd-main"><div class="chnum"><span>${pad(S.ch)}</span></div>
+        <div class="chside"><span>${c.sx ? 'SIMPLEX' : 'DUPLEX'}</span><span>${msg}</span><span>${c.tx}</span>${S.dw ? '<span>WATCH 16</span>' : ''}</div></div>
+      <div class="lcd-bot"><span>${right}</span></div>`;
+  }
+  function render() {
+    $('#lcd').innerHTML = lcdHTML();
+    $('#ptt').classList.toggle('tx', S.tx);
+    $('#kdw').classList.toggle('lit', S.dw);
+    document.querySelectorAll('#chBody tr').forEach(tr => tr.classList.toggle('cur', +tr.dataset.ch === S.ch));
+  }
+  function renderChannels() {
+    $('#chBody').innerHTML = ALL_CH.map(n => {
+      const c = chInfo(n);
+      return `<tr data-ch="${n}"><td>${pad(n)}</td><td>${c.tx}</td><td>${c.sx ? 'Simplex' : 'Duplex'}</td><td>${c.note}</td></tr>`;
+    }).join('');
+  }
+
+  document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => {
+    switch (b.dataset.k) {
+      case 'up': step(1); break;
+      case 'down': step(-1); break;
+      case 'hl': if (LOW_ONLY.has(S.ch)) flash('1 W ONLY ON CH' + pad(S.ch)); else { S.hi = !S.hi; render(); } break;
+      case 'dw': S.dw = !S.dw; render(); break;
+    }
+  }));
+
+  const k16 = $('#k16');
+  let lpTimer = null, lpFired = false;
+  k16.addEventListener('pointerdown', () => { lpFired = false; lpTimer = setTimeout(() => { lpFired = true; setCh(9); }, 550); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(e => k16.addEventListener(e, () => clearTimeout(lpTimer)));
+  k16.addEventListener('click', () => {
+    if (lpFired) { lpFired = false; return; }
+    if (S.ch !== 16) setCh(16); else if (S.prevCh !== 16) setCh(S.prevCh);
+  });
+
+  const ptt = $('#ptt');
+  const txStart = () => { if (S.tx) return; S.tx = true; S.txStart = Date.now(); render(); };
+  const txEnd = () => { if (!S.tx) return; S.tx = false; render(); };
+  ptt.addEventListener('pointerdown', e => { e.preventDefault(); try { ptt.setPointerCapture(e.pointerId); } catch (_) {} txStart(); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(e => ptt.addEventListener(e, txEnd));
+  ptt.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); txStart(); } });
+  ptt.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') txEnd(); });
+  ptt.addEventListener('contextmenu', e => e.preventDefault());
+
+  $('#chBody').addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    const n = +tr.dataset.ch;
+    if (n === 70) { flash('CH70 IS DSC ONLY'); return; }
+    setCh(n);
+  });
+
+  setInterval(() => { if (S.tx || S.flash) $('#lcd').innerHTML = lcdHTML(); if (S.flash && S.flash.until < Date.now()) S.flash = null; }, 500);
+  renderChannels();
+  render();
+})();
+</script>
+</body>
+</html>
