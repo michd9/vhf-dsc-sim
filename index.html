@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>VHF DSC Trainer</title>
+<title>VHF DSC Simulator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&family=Share+Tech+Mono&display=swap">
@@ -62,6 +62,36 @@ h2 { font-family: var(--f-disp); font-weight: 700; font-size: 24px; letter-spaci
 .k.lit { color: var(--accent); }
 .ptt { grid-column: 1 / -1; min-height: 66px; font-size: 19px; touch-action: none; }
 .ptt.tx { background: linear-gradient(180deg, #d4473c, #9c2a22); color: #fff; }
+.dis { grid-column: span 2; touch-action: none; color: #f6d9d5;
+  background: repeating-linear-gradient(135deg, #5a2420 0 8px, #4a1d1a 8px 16px); }
+.dis small { color: #d9a39c; }
+.dis.open { background: linear-gradient(180deg, #e0463a, #a5271f); color: #fff; }
+.dis.open small { color: #ffd9d4; }
+
+.lcd-menu { flex: 1; display: flex; flex-direction: column; font-size: 15px; line-height: 1.3; }
+.mtitle { background: var(--lcd-ink); color: var(--lcd); padding: 0 6px; font-size: 13px; letter-spacing: .08em; margin-bottom: 3px; }
+.mitem { padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mitem.sel { background: rgba(24,32,15,.22); }
+.mitem.sel::before { content: "▶ "; }
+.mmore { margin-top: auto; text-align: right; font-size: 12px; }
+.lcd-alert { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; gap: 2px; font-size: 16px; line-height: 1.25; }
+.lcd-alert b { font-size: 22px; letter-spacing: .06em; font-weight: 400; }
+.lcd-alert .blink { animation: blink 1s steps(2, start) infinite; }
+.lcd-alert .hint { font-size: 12.5px; margin-top: 4px; }
+.lcd-alert .big { font-size: 64px; line-height: 1; }
+@keyframes blink { to { visibility: hidden; } }
+.lcd-bot { justify-content: space-between; }
+
+.panel-block { margin-bottom: 26px; }
+.log { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); max-height: 220px; overflow-y: auto; }
+.log ol { list-style: none; margin: 0; padding: 0; }
+.log li { display: grid; grid-template-columns: 52px 34px minmax(0,1fr); gap: 8px; padding: 7px 12px; border-top: 1px solid var(--line); font-size: 14px; }
+.log li:first-child { border-top: 0; }
+.log .t { font-family: var(--f-lcd); color: var(--muted); }
+.log .d { font-family: var(--f-disp); font-weight: 600; letter-spacing: .08em; color: var(--muted); }
+.log .d.out { color: var(--accent); }
+.log li.urgent .m { color: #ff8a7d; }
+.log .empty { padding: 12px; color: var(--muted); }
 
 .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
 table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
@@ -78,7 +108,7 @@ tr.cur td:first-child { color: var(--accent); }
 <body>
 <div class="wrap">
   <div class="radio-col">
-    <h1>VHF DSC Trainer <span>· Class D</span></h1>
+    <h1>VHF DSC Simulator <span>· Class D</span></h1>
     <section class="radio" aria-label="VHF radio">
       <div class="rhead">
         <div class="brand">MARINER D-25<small>VHF · DSC · INT</small></div>
@@ -91,12 +121,21 @@ tr.cur td:first-child { color: var(--accent); }
         <button class="k" data-k="dw" id="kdw">DW<small>dual watch</small></button>
         <button class="k" data-k="down" aria-label="Channel down">CH ▼</button>
         <button class="k" data-k="up" aria-label="Channel up">CH ▲</button>
+        <button class="k" data-k="menu">MENU</button>
+        <button class="k" data-k="ent">ENT<small>select</small></button>
+        <button class="k" data-k="clr">CLR<small>back</small></button>
+        <button class="k dis" id="kdis">DISTRESS<small>tap to open cover</small></button>
         <button class="k ptt" id="ptt">PTT<small>hold to talk</small></button>
       </div>
     </section>
   </div>
 
   <div class="panels">
+    <section class="panel-block">
+      <h2>DSC log</h2>
+      <p class="lede">Press MENU to place an individual call or set the distress nature. Other stations call you now and then. Open the distress cover and hold the key for 3 seconds to send an alert.</p>
+      <div class="log" id="log"></div>
+    </section>
     <h2>International channels</h2>
     <p class="lede">Tap a row to tune the radio. Duplex channels are for coast stations: the ship transmits on the lower frequency and listens 4.6 MHz higher. Ch 70 is DSC only and never carries voice.</p>
     <div class="tbl">
@@ -139,7 +178,24 @@ tr.cur td:first-child { color: var(--accent); }
              short: SHORT[n] || (sx ? 'PORT·INTERSHIP' : 'COAST STATION') };
   }
 
-  const S = { ch: 16, prevCh: 16, hi: true, dw: false, tx: false, txStart: 0, flash: null };
+  const OWN = { mmsi: '247000123', pos: "43°37.5'N 013°30.6'E" };
+  const CONTACTS = [
+    { name: 'MARE CHIARO', mmsi: '247123450', coast: false },
+    { name: 'SIRENA', mmsi: '247987650', coast: false },
+    { name: 'LIBECCIO', mmsi: '247556120', coast: false },
+    { name: 'CAPO BIANCO RADIO', mmsi: '002470001', coast: true }
+  ];
+  const COAST = CONTACTS[3];
+  const WORK_CH = [72, 77, 69, 6, 8];
+  const NATURES = ['UNDESIGNATED', 'FIRE / EXPLOSION', 'FLOODING', 'COLLISION', 'GROUNDING', 'LISTING / CAPSIZE',
+                   'SINKING', 'DISABLED / ADRIFT', 'ABANDONING SHIP', 'PIRACY', 'MAN OVERBOARD'];
+
+  const S = { ch: 16, prevCh: 16, hi: true, dw: false, tx: false, txStart: 0, flash: null,
+              menu: [], alert: null, nature: 'UNDESIGNATED', cover: false, hold: null, distress: null,
+              traffic: true, sound: true, log: [] };
+  const fmtMmsi = m => m.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+  const utc = () => new Date().toISOString().slice(11, 16);
+  const rnd = (a, b) => a + Math.random() * (b - a);
 
   function setCh(n) {
     if (n !== S.ch) { S.prevCh = S.ch; S.ch = n; }
@@ -153,23 +209,209 @@ tr.cur td:first-child { color: var(--accent); }
   }
   function flash(text) { S.flash = { text, until: Date.now() + 1800 }; render(); }
 
-  function lcdHTML() {
+  const top = () => S.menu[S.menu.length - 1];
+  const lbl = it => typeof it.label === 'function' ? it.label() : it.label;
+
+  function bodyHTML() {
+    if (S.hold) {
+      const left = Math.max(0, 3 - Math.floor((Date.now() - S.hold.start) / 1000));
+      return `<div class="lcd-alert"><span>HOLD TO SEND DISTRESS</span><span class="big">${left}</span><span>${S.nature}</span></div>`;
+    }
+    if (S.alert) {
+      const [head, ...rest] = S.alert.lines;
+      return `<div class="lcd-alert"><b class="${S.alert.blink ? 'blink' : ''}">${head}</b>${rest.map(l => `<span>${l}</span>`).join('')}
+        ${S.alert.hint ? `<span class="hint">${S.alert.hint}</span>` : ''}</div>`;
+    }
+    const m = top();
+    if (m) {
+      const first = Math.max(0, Math.min(m.i - 1, m.items.length - 4));
+      const vis = m.items.slice(first, first + 4);
+      return `<div class="lcd-menu"><div class="mtitle">${m.title}</div>
+        ${vis.map((it, j) => `<div class="mitem ${first + j === m.i ? 'sel' : ''}">${lbl(it)}</div>`).join('')}
+        ${m.items.length > 4 ? `<div class="mmore">${m.i + 1}/${m.items.length}</div>` : ''}</div>`;
+    }
     const c = chInfo(S.ch);
     const msg = S.flash && S.flash.until > Date.now() ? S.flash.text : c.short;
+    return `<div class="lcd-main"><div class="chnum"><span>${pad(S.ch)}</span></div>
+        <div class="chside"><span>${c.sx ? 'SIMPLEX' : 'DUPLEX'}</span><span>${msg}</span><span>${c.tx}</span>${S.dw ? '<span>WATCH 16</span>' : ''}</div></div>`;
+  }
+  function lcdHTML() {
     const secs = S.tx ? Math.floor((Date.now() - S.txStart) / 1000) : 0;
-    const right = S.tx ? `TX ${Math.floor(secs / 60)}:${pad(secs % 60)}` : new Date().toISOString().slice(11, 16) + ' UTC';
+    const right = S.tx ? `TX ${Math.floor(secs / 60)}:${pad(secs % 60)}` : utc() + ' UTC';
     return `<div class="lcd-top">
         <span class="fl ${S.tx ? 'on' : ''}">TX</span><span class="fl on">${S.hi ? 'HI 25W' : 'LO 1W'}</span>
-        <span class="fl on">INT</span><span class="fl ${S.dw ? 'on' : ''}">DW</span></div>
-      <div class="lcd-main"><div class="chnum"><span>${pad(S.ch)}</span></div>
-        <div class="chside"><span>${c.sx ? 'SIMPLEX' : 'DUPLEX'}</span><span>${msg}</span><span>${c.tx}</span>${S.dw ? '<span>WATCH 16</span>' : ''}</div></div>
-      <div class="lcd-bot"><span>${right}</span></div>`;
+        <span class="fl on">INT</span><span class="fl ${S.dw ? 'on' : ''}">DW</span>
+        <span class="fl ${S.distress ? 'on' : ''}">DISTRESS</span></div>
+      ${bodyHTML()}
+      <div class="lcd-bot"><span>${OWN.pos}</span><span>${right}</span></div>`;
+  }
+  let lastLcd = '';
+  function paintLcd() {
+    const h = lcdHTML();
+    if (h !== lastLcd) { $('#lcd').innerHTML = h; lastLcd = h; }
   }
   function render() {
-    $('#lcd').innerHTML = lcdHTML();
+    paintLcd();
     $('#ptt').classList.toggle('tx', S.tx);
     $('#kdw').classList.toggle('lit', S.dw);
+    const dis = $('#kdis');
+    dis.classList.toggle('open', S.cover);
+    dis.querySelector('small').textContent = S.cover ? 'hold 3 s to send' : 'tap to open cover';
     document.querySelectorAll('#chBody tr').forEach(tr => tr.classList.toggle('cur', +tr.dataset.ch === S.ch));
+  }
+
+  // ---- DSC log ----
+  function log(dir, text, urgent) {
+    S.log.unshift({ t: utc(), dir, text, urgent: !!urgent });
+    renderLog();
+  }
+  function renderLog() {
+    $('#log').innerHTML = S.log.length
+      ? '<ol>' + S.log.map(e => `<li class="${e.urgent ? 'urgent' : ''}"><span class="t">${e.t}</span>
+          <span class="d ${e.dir === 'TX' ? 'out' : ''}">${e.dir}</span><span class="m">${e.text}</span></li>`).join('') + '</ol>'
+      : '<div class="empty">No DSC traffic yet.</div>';
+  }
+
+  // ---- alarm tone (no voice, just the DSC beeps) ----
+  let ac = null, alarmTimer = null;
+  function audio() {
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { ac = false; } }
+    if (ac && ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function beep(freq, dur) {
+    const a = S.sound && audio();
+    if (!a) return;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'square'; o.frequency.value = freq; g.gain.value = 0.04;
+    o.connect(g); g.connect(a.destination);
+    o.start(); o.stop(a.currentTime + dur);
+  }
+  function startAlarm(urgent) {
+    stopAlarm();
+    const tick = () => { if (urgent) { beep(2100, .25); setTimeout(() => beep(1300, .25), 260); } else beep(1800, .18); };
+    tick(); alarmTimer = setInterval(tick, urgent ? 700 : 1100);
+  }
+  function stopAlarm() { clearInterval(alarmTimer); alarmTimer = null; }
+
+  function showAlert(a) { S.alert = a; if (a.alarm) startAlarm(a.alarm === 'urgent'); else stopAlarm(); render(); }
+  function closeAlert() { S.alert = null; stopAlarm(); render(); }
+
+  // ---- menus ----
+  function openMenu(m) { m.i = m.i || 0; S.menu.push(m); render(); }
+  function closeMenus() { S.menu = []; render(); }
+
+  function mainMenu() {
+    const items = [];
+    if (S.distress) items.push({ label: 'CANCEL DISTRESS', act: confirmCancel });
+    items.push(
+      { label: 'INDIVIDUAL CALL', act: () => openMenu(contactsMenu()) },
+      { label: 'DISTRESS NATURE', act: () => openMenu(natureMenu()) },
+      { label: 'CALL LOG', act: () => openMenu(callLogMenu()) },
+      { label: 'SETUP', act: () => openMenu(setupMenu()) }
+    );
+    return { title: 'DSC MENU', items };
+  }
+  function contactsMenu() {
+    return { title: 'CALL TO', items: CONTACTS.map(c => ({ label: c.name, act: () => {
+      if (c.coast) openMenu(confirmMenu(c, null)); else openMenu(channelMenu(c));
+    } })) };
+  }
+  function channelMenu(c) {
+    return { title: 'WORKING CH', items: WORK_CH.map(n => ({ label: 'CH ' + pad(n) + '  ' + (chInfo(n).short), act: () => openMenu(confirmMenu(c, n)) })) };
+  }
+  function confirmMenu(c, ch) {
+    return { title: 'SEND CALL?', items: [
+      { label: 'SEND → ' + c.name, act: () => { closeMenus(); sendIndividual(c, ch); } },
+      { label: (ch ? 'CH ' + pad(ch) : 'CH: COAST ASSIGNS') + ' · ROUTINE', act: () => {} }
+    ] };
+  }
+  function natureMenu() {
+    const m = { title: 'DISTRESS NATURE', items: NATURES.map(n => ({ label: n, act: () => {
+      S.nature = n; closeMenus(); flash('NATURE SET');
+    } })) };
+    m.i = Math.max(0, NATURES.indexOf(S.nature));
+    return m;
+  }
+  function callLogMenu() {
+    const items = S.log.slice(0, 12).map(e => ({ label: `${e.t} ${e.dir} ${e.text}`, act: () => {} }));
+    return { title: 'CALL LOG', items: items.length ? items : [{ label: 'EMPTY', act: () => {} }] };
+  }
+  function setupMenu() {
+    return { title: 'SETUP', items: [
+      { label: 'MMSI ' + fmtMmsi(OWN.mmsi), act: () => {} },
+      { label: () => 'SIM TRAFFIC: ' + (S.traffic ? 'ON' : 'OFF'), act: () => { S.traffic = !S.traffic; scheduleIncoming(); render(); } },
+      { label: () => 'ALARM SOUND: ' + (S.sound ? 'ON' : 'OFF'), act: () => { S.sound = !S.sound; render(); } }
+    ] };
+  }
+  function confirmCancel() {
+    openMenu({ title: 'CANCEL ALERT?', items: [
+      { label: 'YES, SEND CANCEL', act: () => { closeMenus(); cancelDistress(); } },
+      { label: 'NO', act: () => { S.menu.pop(); render(); } }
+    ] });
+  }
+
+  // ---- simulated DSC traffic ----
+  let pending = null;
+  function sendIndividual(c, ch) {
+    log('TX', `Individual call to ${c.name} (${fmtMmsi(c.mmsi)})` + (ch ? `, CH ${pad(ch)}` : ''));
+    showAlert({ lines: ['CALLING', c.name, ch ? 'PROPOSED CH ' + pad(ch) : 'ROUTINE'], blink: true, hint: 'CLR: abort' });
+    S.alert.onClr = () => { clearTimeout(pending); log('—', `Call to ${c.name} aborted`); closeAlert(); };
+    const answers = Math.random() > 0.2;
+    pending = setTimeout(() => {
+      if (!answers) {
+        log('RX', `No acknowledgement from ${c.name}`);
+        showAlert({ lines: ['NO ACK', c.name], hint: 'ENT: ok', onEnt: closeAlert, onClr: closeAlert });
+        return;
+      }
+      const work = ch || 26;
+      log('RX', `ACK from ${c.name}: able, CH ${pad(work)}`);
+      showAlert({ lines: ['ACK RECEIVED', c.name, 'ABLE · CH ' + pad(work)], alarm: 'routine', hint: 'ENT: go to CH ' + pad(work),
+        onEnt: () => { closeAlert(); setCh(work); }, onClr: closeAlert });
+    }, rnd(2500, 5000));
+  }
+
+  let incomingTimer = null;
+  function scheduleIncoming() {
+    clearTimeout(incomingTimer);
+    if (S.traffic) incomingTimer = setTimeout(incoming, rnd(60000, 120000));
+  }
+  function incoming() {
+    if (S.alert || S.distress || S.tx || S.hold) { scheduleIncoming(); return; }
+    const ships = CONTACTS.filter(c => !c.coast);
+    const c = ships[Math.floor(Math.random() * ships.length)];
+    const ch = WORK_CH[Math.floor(Math.random() * WORK_CH.length)];
+    log('RX', `Individual call from ${c.name} (${fmtMmsi(c.mmsi)}), CH ${pad(ch)}`);
+    showAlert({ lines: ['INDIVIDUAL CALL', c.name, fmtMmsi(c.mmsi), 'ROUTINE · CH ' + pad(ch)], blink: true, alarm: 'routine',
+      hint: 'ENT: accept · CLR: unable',
+      onEnt: () => { log('TX', `ACK to ${c.name}: able, CH ${pad(ch)}`); closeAlert(); setCh(ch); },
+      onClr: () => { log('TX', `ACK to ${c.name}: unable`); closeAlert(); } });
+    scheduleIncoming();
+  }
+
+  let dTimer = null;
+  function sendDistress() {
+    S.hold = null; S.cover = false;
+    S.distress = { nature: S.nature };
+    S.menu = [];
+    S.hi = true; setCh(16);
+    log('TX', `DISTRESS ALERT, ${S.nature}, ${OWN.pos}`, true);
+    showAlert({ lines: ['DISTRESS SENT', S.nature, 'WAITING FOR ACK'], blink: true, alarm: 'urgent', hint: 'ENT: silence' });
+    S.alert.onEnt = S.alert.onClr = () => stopAlarm();
+    clearTimeout(dTimer);
+    dTimer = setTimeout(() => {
+      if (!S.distress) return;
+      log('RX', `Distress ACK from ${COAST.name} (${fmtMmsi(COAST.mmsi)})`, true);
+      showAlert({ lines: ['DISTRESS ACK', 'FROM ' + COAST.name, fmtMmsi(COAST.mmsi)], alarm: 'urgent', hint: 'ENT: ok · now on CH 16',
+        onEnt: closeAlert, onClr: closeAlert });
+    }, rnd(6000, 9000));
+  }
+  function cancelDistress() {
+    clearTimeout(dTimer);
+    S.distress = null;
+    log('TX', 'Distress alert cancelled (self-cancel)', true);
+    setCh(16);
+    showAlert({ lines: ['CANCEL SENT', 'NOW ON CH 16'], hint: 'ENT: ok', onEnt: closeAlert, onClr: closeAlert });
   }
   function renderChannels() {
     $('#chBody').innerHTML = ALL_CH.map(n => {
@@ -178,8 +420,27 @@ tr.cur td:first-child { color: var(--accent); }
     }).join('');
   }
 
+  function moveSel(d) {
+    const m = top();
+    m.i = (m.i + d + m.items.length) % m.items.length;
+    render();
+  }
   document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => {
-    switch (b.dataset.k) {
+    audio();
+    const k = b.dataset.k;
+    if (S.alert && (k === 'ent' || k === 'clr')) {
+      const fn = k === 'ent' ? S.alert.onEnt : S.alert.onClr;
+      if (fn) fn(); else stopAlarm();
+      return;
+    }
+    if (!S.alert && top() && (k === 'up' || k === 'down')) { moveSel(k === 'up' ? -1 : 1); return; }
+    switch (k) {
+      case 'menu': if (S.alert) break; if (top()) closeMenus(); else openMenu(mainMenu()); break;
+      case 'ent': if (top()) { const it = top().items[top().i]; it.act(); render(); } break;
+      case 'clr':
+        if (top()) { S.menu.pop(); render(); }
+        else if (S.cover) { S.cover = false; render(); }
+        break;
       case 'up': step(1); break;
       case 'down': step(-1); break;
       case 'hl': if (LOW_ONLY.has(S.ch)) flash('1 W ONLY ON CH' + pad(S.ch)); else { S.hi = !S.hi; render(); } break;
@@ -213,9 +474,38 @@ tr.cur td:first-child { color: var(--accent); }
     setCh(n);
   });
 
-  setInterval(() => { if (S.tx || S.flash) $('#lcd').innerHTML = lcdHTML(); if (S.flash && S.flash.until < Date.now()) S.flash = null; }, 500);
+  // distress key: first tap lifts the cover, then hold 3 s to send
+  const dis = $('#kdis');
+  let coverTimer = null;
+  const armCover = () => { clearTimeout(coverTimer); coverTimer = setTimeout(() => { if (!S.hold) { S.cover = false; render(); } }, 10000); };
+  const pressDis = e => {
+    audio();
+    if (!S.cover) { S.cover = true; armCover(); render(); return; }
+    if (S.hold) return;
+    if (e.pointerId !== undefined) { try { dis.setPointerCapture(e.pointerId); } catch (_) {} }
+    clearTimeout(coverTimer);
+    S.hold = { start: Date.now(), timer: setTimeout(sendDistress, 3000) };
+    beep(2100, .08); render();
+  };
+  dis.addEventListener('pointerdown', e => { e.preventDefault(); pressDis(e); });
+  dis.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); pressDis(e); } });
+  dis.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') releaseDis(); });
+  const releaseDis = () => {
+    if (!S.hold) return;
+    clearTimeout(S.hold.timer); S.hold = null; armCover(); render();
+  };
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(e => dis.addEventListener(e, releaseDis));
+  dis.addEventListener('contextmenu', e => e.preventDefault());
+
+  setInterval(() => {
+    if (S.flash && S.flash.until < Date.now()) S.flash = null;
+    if (S.hold) beep(2100, .08);
+    paintLcd();
+  }, 500);
   renderChannels();
+  renderLog();
   render();
+  scheduleIncoming();
 })();
 </script>
 </body>

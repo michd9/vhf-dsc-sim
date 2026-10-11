@@ -1,10 +1,14 @@
-# vhf-dsc-trainer
+# vhf-dsc-sim
 
-VHF/DSC radio simulator to practise for the SRC/LRC exam. Runs in the browser, just open index.html.
+Class D VHF/DSC radio sim. Open `index.html`.
 
-Only for training, not for real radio traffic.
+![screenshot](docs/screenshot.png)
 
-TODO
-- DSC menus and calls
-- distress button
-- drills
+- channels, 16/9, H/L, DW, PTT
+- DSC: individual calls, incoming calls, log
+- distress key (cover, hold 3s), ack, cancel
+- no voice yet
+
+MENU / CH▲▼ / ENT / CLR.
+
+Not a real radio. Names and MMSIs are fake.
