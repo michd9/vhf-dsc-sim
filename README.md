@@ -12,3 +12,5 @@ Class D VHF/DSC radio sim. Open `index.html`.
 MENU / CH▲▼ / ENT / CLR.
 
 Not a real radio. Names and MMSIs are fake.
+
+(c) Michele D'Incecco, all rights reserved. See LICENSE.
