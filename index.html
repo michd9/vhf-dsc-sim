@@ -200,6 +200,7 @@ tr.cur td:first-child { color: var(--accent); }
   function setCh(n) {
     if (n !== S.ch) { S.prevCh = S.ch; S.ch = n; }
     if (LOW_ONLY.has(n)) S.hi = false;
+    if (n === 16) S.dw = false;
     render();
   }
   function step(d) {
@@ -230,10 +231,13 @@ tr.cur td:first-child { color: var(--accent); }
         ${vis.map((it, j) => `<div class="mitem ${first + j === m.i ? 'sel' : ''}">${lbl(it)}</div>`).join('')}
         ${m.items.length > 4 ? `<div class="mmore">${m.i + 1}/${m.items.length}</div>` : ''}</div>`;
     }
-    const c = chInfo(S.ch);
+    // dual watch: alternate between the working channel and 16 (TX always on the working channel)
+    const scan = S.dw && S.ch !== 16 && !S.tx;
+    const show = scan && Math.floor(Date.now() / 1000) % 2 ? 16 : S.ch;
+    const c = chInfo(show);
     const msg = S.flash && S.flash.until > Date.now() ? S.flash.text : c.short;
-    return `<div class="lcd-main"><div class="chnum"><span>${pad(S.ch)}</span></div>
-        <div class="chside"><span>${c.sx ? 'SIMPLEX' : 'DUPLEX'}</span><span>${msg}</span><span>${c.tx}</span>${S.dw ? '<span>WATCH 16</span>' : ''}</div></div>`;
+    return `<div class="lcd-main"><div class="chnum"><span>${pad(show)}</span></div>
+        <div class="chside"><span>${c.sx ? 'SIMPLEX' : 'DUPLEX'}</span><span>${msg}</span><span>${c.tx}</span>${S.dw ? `<span>DW ${pad(S.ch)}/16</span>` : ''}</div></div>`;
   }
   function lcdHTML() {
     const secs = S.tx ? Math.floor((Date.now() - S.txStart) / 1000) : 0;
@@ -444,7 +448,9 @@ tr.cur td:first-child { color: var(--accent); }
       case 'up': step(1); break;
       case 'down': step(-1); break;
       case 'hl': if (LOW_ONLY.has(S.ch)) flash('1 W ONLY ON CH' + pad(S.ch)); else { S.hi = !S.hi; render(); } break;
-      case 'dw': S.dw = !S.dw; render(); break;
+      case 'dw':
+        if (!S.dw && S.ch === 16) { flash('SELECT WORK CH'); break; }
+        S.dw = !S.dw; render(); break;
     }
   }));
 
