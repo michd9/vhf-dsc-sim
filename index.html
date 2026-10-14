@@ -396,19 +396,31 @@ tr.cur td:first-child { color: var(--accent); }
   let dTimer = null;
   function sendDistress() {
     S.hold = null; S.cover = false;
-    S.distress = { nature: S.nature };
+    S.distress = { nature: S.nature, tx: 0, acked: false };
     S.menu = [];
     S.hi = true; setCh(16);
-    log('TX', `DISTRESS ALERT, ${S.nature}, ${OWN.pos}`, true);
-    showAlert({ lines: ['DISTRESS SENT', S.nature, 'WAITING FOR ACK'], blink: true, alarm: 'urgent', hint: 'ENT: silence' });
+    txDistress();
+  }
+  // unacknowledged alerts repeat every 3.5 to 4.5 min, like a real set
+  function txDistress() {
+    const d = S.distress;
+    if (!d || d.acked) return;
+    d.tx++;
+    log('TX', `DISTRESS ALERT${d.tx > 1 ? ' (repeat ' + (d.tx - 1) + ')' : ''}, ${d.nature}, ${OWN.pos}`, true);
+    showAlert({ lines: ['DISTRESS SENT', d.nature, 'WAITING FOR ACK', 'TX ' + d.tx + ' · REPEAT ~4 MIN'], blink: true, alarm: 'urgent', hint: 'ENT: silence' });
     S.alert.onEnt = S.alert.onClr = () => stopAlarm();
     clearTimeout(dTimer);
-    dTimer = setTimeout(() => {
-      if (!S.distress) return;
-      log('RX', `Distress ACK from ${COAST.name} (${fmtMmsi(COAST.mmsi)})`, true);
-      showAlert({ lines: ['DISTRESS ACK', 'FROM ' + COAST.name, fmtMmsi(COAST.mmsi)], alarm: 'urgent', hint: 'ENT: ok · now on CH 16',
-        onEnt: closeAlert, onClr: closeAlert });
-    }, rnd(6000, 9000));
+    if (Math.random() < 0.6) {
+      dTimer = setTimeout(() => {
+        if (!S.distress) return;
+        d.acked = true;
+        log('RX', `Distress ACK from ${COAST.name} (${fmtMmsi(COAST.mmsi)})`, true);
+        showAlert({ lines: ['DISTRESS ACK', 'FROM ' + COAST.name, fmtMmsi(COAST.mmsi)], alarm: 'urgent', hint: 'ENT: ok · now on CH 16',
+          onEnt: closeAlert, onClr: closeAlert });
+      }, rnd(6000, 9000));
+    } else {
+      dTimer = setTimeout(txDistress, rnd(210000, 270000));
+    }
   }
   function cancelDistress() {
     clearTimeout(dTimer);

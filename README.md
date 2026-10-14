@@ -6,7 +6,7 @@ Class D VHF/DSC radio sim. Open `index.html`.
 
 - channels, 16/9, H/L, DW, PTT
 - DSC: individual calls, incoming calls, log
-- distress key (cover, hold 3s), ack, cancel
+- distress key (cover, hold 3s), auto repeat, ack, cancel
 - no voice yet
 
 MENU / CH▲▼ / ENT / CLR.
