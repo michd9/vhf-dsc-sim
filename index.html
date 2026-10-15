@@ -213,7 +213,11 @@ tr.cur td:first-child { color: var(--accent); }
   const top = () => S.menu[S.menu.length - 1];
   const lbl = it => typeof it.label === 'function' ? it.label() : it.label;
 
+  const BOOT_UNTIL = Date.now() + 1600;
   function bodyHTML() {
+    if (Date.now() < BOOT_UNTIL) {
+      return `<div class="lcd-alert"><b>MARINER D-25</b><span>MMSI ${fmtMmsi(OWN.mmsi)}</span><span>SELF TEST OK · GPS OK</span></div>`;
+    }
     if (S.hold) {
       const left = Math.max(0, 3 - Math.floor((Date.now() - S.hold.start) / 1000));
       return `<div class="lcd-alert"><span>HOLD TO SEND DISTRESS</span><span class="big">${left}</span><span>${S.nature}</span></div>`;
